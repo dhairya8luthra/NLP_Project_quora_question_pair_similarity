@@ -1,0 +1,6 @@
+Model,Test Accuracy,F1 Score,ROC-AUC
+TF-IDF + Logistic Regression,64.53,59.05,85.00
+SBERT Zero-Shot,77.03,73.71,88.00
+SBERT Fine-tuned,77.03,73.71,92.00
+Engineered Features (786),79.95,67.25,91.29
+Stacking Ensemble (801),85.28,80.40,93.13

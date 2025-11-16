@@ -1,0 +1,68 @@
+3 Literature Review
+
+Research on detecting semantically duplicate questions spans traditional feature-engineered approaches, neural Siamese architectures, and hybrid models that combine lexical cues with contextual embeddings. Prior work on Quora’s Question Pair dataset has shown that both deep learning and classical machine learning can achieve strong performance when appropriately designed and trained. The two primary studies examined here contribute complementary insights into semantic similarity modeling and serve as a foundation for further improvements such as contrastive learning and hard-negative mining.
+
+3.1 Siamese BiGRU-Based Duplicate Detection
+
+(Godbole et al.) 
+
+
+
+Semantic Similarity Modeling
+
+Godbole et al. treat duplicate-question detection as a sentence-pair semantic equivalence task, noting that lexical similarity alone often fails due to paraphrasing and free-form natural language expression. They adopt a Siamese neural architecture with Bidirectional GRU encoders that map each question into shared semantic space. This enables the model to compare questions at a representational rather than purely lexical level.
+
+Data Augmentation and Preprocessing
+
+The study emphasizes large-scale augmentation to reduce overfitting and address class imbalance. Techniques include flipping question pairs, creating self-duplicate positives, and generating synthetic negative pairs. Standardizing sentence length and using pretrained GloVe embeddings further stabilizes training.
+
+Hybrid Neural–Machine Learning Model
+
+Instead of relying solely on the neural similarity score, the authors integrate additional handcrafted features, including word-match ratios, TF-IDF weighted overlaps, and a “magic feature” based on shared known duplicates. These features, combined with the Siamese GRU output, serve as input to secondary classifiers such as SVM, AdaBoost, and Random Forest.
+
+The strongest performance emerges from the Random Forest ensemble applied on top of GRU-derived similarity features. This hybrid approach outperforms both standalone deep learning models and feature-only baselines, demonstrating that semantic embeddings and simple lexical indicators are complementary.
+
+Key Findings
+
+Siamese BiGRUs effectively model contextual semantics beyond lexical overlap.
+
+Hand-engineered lexical features remain valuable and significantly boost performance when combined with neural encoders.
+
+Ensemble learning on top of neural representations provides state-of-the-art results within the constraints of the Kaggle competition.
+
+3.2 Feature-Engineered and Deep Hybrid Architectures
+
+(Ansari & Sharma) 
+
+
+
+Extensive Feature Engineering
+
+Ansari and Sharma explore a broad feature-engineering pipeline consisting of 28 features: sentence length metrics, fuzzy-matching ratios (e.g., Qratio, Wratio), distance-based similarities (cosine, Manhattan, WMD), and statistical descriptors (skewness, kurtosis). This multi-aspect feature design captures varied syntactic and lexical relationships between question pairs.
+
+Classical Machine Learning Baselines
+
+Using these features, they benchmark seven classical classifiers, with XGBoost achieving the strongest results. Notably, character-level TF-IDF combined with XGBoost reaches 82.44 percent accuracy and an F1 score of 0.8044, surpassing several previously published deep learning systems.
+
+Their experiments also show that dropping low-importance features slightly improves accuracy, indicating that feature selection stabilizes classical model performance.
+
+Deep Neural Network Architectures
+
+The authors further design four deep learning architectures that incorporate:
+• GloVe embeddings,
+• LSTMs,
+• CNN layers for n-gram feature extraction,
+• multi-branch parallel submodels, and
+• merged dense layers with dropout and batch normalization.
+
+The most advanced architecture, integrating six parallel sub-networks (including CNN and LSTM branches), achieves 85.82 percent accuracy, edging close to Quora’s internal benchmark of 87 percent.
+
+Key Findings
+
+Classical ML models, when supported by rich features and character-level TF-IDF, remain highly competitive with deep learning.
+
+Deep networks that integrate multiple representation pathways (CNN, LSTM, distributed embeddings) outperform prior baselines and capture fine-grained semantic signals.
+
+Character-level features help address spelling variations, short queries, and noisy user-generated content.
+
+The performance gap with Quora’s in-house systems is largely due to domain-specific embeddings, which other researchers lack.

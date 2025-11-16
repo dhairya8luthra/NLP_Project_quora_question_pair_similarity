@@ -1,0 +1,650 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{enumitem}
+\usepackage{colortbl}
+\usepackage{xcolor}
+
+\definecolor{lightgray}{gray}{0.9}
+
+\geometry{margin=1in}
+
+\begin{document}
+
+\begin{titlepage}
+  \centering
+  {\Large\bfseries PROJECT REPORT\\[2pt]
+  \normalsize for\\[4pt]
+  \Large\bfseries NATURAL LANGUAGE PROCESSING}\\[12pt]
+
+  \rule{0.8\textwidth}{0.4pt}\\[6pt]
+  {\Large CS F429}\\[6pt]
+  \rule{0.8\textwidth}{0.4pt}\\[16pt]
+
+  \vspace{4mm}
+  {\large\bfseries Submitted By}\\[8pt]
+  \renewcommand{\arraystretch}{1.3}
+  \rowcolors{2}{lightgray}{white}
+  \begin{tabular}{@{} l l l @{}}
+    \toprule
+    \textbf{Name} & \textbf{Student ID} & \textbf{Email} \\
+    \midrule
+    Dhairya Luthra & 2022A7PS1377H & \href{mailto:f20221377@hyderabad.bits-pilani.ac.in}{f20221377@hyderabad.bits-pilani.ac.in} \\
+    Aariv Walia & 2022A7PS0052H & \href{mailto:f20220052@hyderabad.bits-pilani.ac.in}{f20220052@hyderabad.bits-pilani.ac.in} \\
+    Shreejeet Mishra & 2022A7PS0036H & \href{mailto:f20220036@hyderabad.bits-pilani.ac.in}{f20220036@hyderabad.bits-pilani.ac.in} \\
+    Sourashmi Shil & 2023A7PS1110H &
+    \href{mailto:f20231110@hyderabad.bits-pilani.ac.in}
+    {f20231110@hyderabad.bits-pilani.ac.in} \\
+    \bottomrule
+  \end{tabular}\\[18pt]
+
+  {\large\bfseries Birla Institute of Technology and Science, Pilani}\\[2pt]
+  {\large Hyderabad Campus}\\[6pt]
+  {\normalsize (November 2025)}
+
+  \vfill
+\end{titlepage}
+
+\newpage
+
+\begin{abstract}
+This report presents a comprehensive study on detecting duplicate questions in community-based Question \& Answer platforms using natural language processing techniques. We address the binary classification problem of identifying semantically equivalent questions despite lexical variations. Starting from a baseline TF-IDF approach achieving 64.53\% accuracy, we explored multiple approaches including SBERT fine-tuning with hard negative mining, extensive feature engineering, and ensemble learning methods. Despite fine-tuning challenges, we ultimately achieved 85.28\% test accuracy with a stacking ensemble model utilizing 801 engineered features. Our approach demonstrates the effectiveness of combining traditional linguistic features, semantic embeddings, and fuzzy matching techniques within an ensemble framework.
+\end{abstract}
+
+\section{Introduction}
+
+\subsection{Problem Statement}
+
+In community-based Question \& Answer (Q\&A) platforms such as Quora, users frequently post semantically identical questions with different wording. For instance, "How do I invest in the stock market?" and "What is the process to invest in stocks?" differ lexically yet convey the same intent. This phenomenon leads to fragmented knowledge, scattered information across multiple question threads, and redundant content that overwhelms both answerers and information seekers.
+
+The task of automatically detecting whether two questions are duplicates constitutes a binary classification problem with significant implications for:
+\begin{itemize}[noitemsep]
+    \item \textbf{Content Quality:} Consolidating duplicate questions improves content organization and accessibility
+    \item \textbf{User Experience:} Users can find comprehensive answers in a single location
+    \item \textbf{System Efficiency:} Reduced redundancy decreases storage requirements and computational overhead
+    \item \textbf{Knowledge Management:} Facilitates better categorization and retrieval of information
+\end{itemize}
+
+\subsection{Motivation}
+
+While cutting-edge transformer models such as Sentence-BERT (SBERT) have demonstrated effectiveness in semantic similarity tasks, they sometimes fail at distinguishing semantically nuanced or near-duplicate pairs. The challenge lies in capturing both semantic equivalence and subtle differences in question intent, which requires a multi-faceted approach combining:
+
+\begin{enumerate}[noitemsep]
+    \item Semantic understanding through pre-trained embeddings
+    \item Linguistic and lexical features for structural analysis
+    \item Fuzzy matching techniques for handling variations in phrasing
+\end{enumerate}
+
+This study explores how systematic feature engineering combined with ensemble learning can enhance duplicate detection performance beyond what single-model approaches achieve.
+
+\subsection{Dataset}
+
+We utilize the Quora Question Pairs (QQP) dataset, a widely-used benchmark for supervised learning in semantic equivalence detection. The dataset characteristics are:
+
+\begin{itemize}[noitemsep]
+    \item \textbf{Source:} Quora platform, available through Kaggle and Hugging Face
+    \item \textbf{Size:} Approximately 404,290 question pairs in the full dataset
+    \item \textbf{Sampling:} We subsample 50,000 pairs for efficient experimentation
+    \item \textbf{Split:} 70\% training (35,000), 15\% validation (7,500), 15\% test (7,500)
+    \item \textbf{Class Distribution:} Approximately 37\% duplicate pairs, 63\% non-duplicate pairs
+    \item \textbf{Stratification:} All splits maintain consistent class distribution
+\end{itemize}
+
+\section{Literature Review}
+
+\subsection{Traditional Approaches}
+
+Early work in duplicate question detection relied on lexical features and classical machine learning algorithms. TF-IDF (Term Frequency-Inverse Document Frequency) representations combined with logistic regression or support vector machines established baseline performance \cite{tfidf}. These methods capture word importance but fail to model semantic relationships between synonyms or paraphrases.
+
+\subsection{Neural Embedding Methods}
+
+The advent of neural word embeddings (Word2Vec, GloVe) enabled semantic similarity computation through vector space representations \cite{mikolov2013}. However, sentence-level embeddings required aggregation strategies (averaging, max-pooling) that lost important contextual information.
+
+\subsection{Transformer-Based Models}
+
+BERT (Bidirectional Encoder Representations from Transformers) revolutionized NLP by providing contextualized embeddings \cite{devlin2018bert}. Sentence-BERT (SBERT) specifically optimized BERT for sentence similarity tasks using siamese network architectures \cite{reimers2019sentence}, achieving state-of-the-art performance on semantic textual similarity benchmarks.
+
+\subsection{Feature Engineering for Text Similarity}
+
+Research in text similarity has identified several effective feature categories:
+
+\begin{itemize}[noitemsep]
+    \item \textbf{Lexical Features:} Jaccard similarity, word overlap, character n-grams
+    \item \textbf{Linguistic Features:} Named Entity Recognition (NER) overlap, Part-of-Speech (POS) patterns
+    \item \textbf{Fuzzy Matching:} Edit distance, FuzzyWuzzy ratios for handling typos and variations
+
+\end{itemize}
+
+\subsection{Ensemble Learning}
+
+Ensemble methods combine multiple models to improve predictive performance \cite{dietterich2000ensemble}. Stacking, where a meta-learner is trained on base model predictions, has shown particular success in NLP tasks \cite{wolpert1992stacked}. The diversity of base models (tree-based, linear, neural) enables capturing different aspects of the data.
+
+\section{Methodology}
+
+\subsection{Exploratory Data Analysis}
+
+Prior to model development, we conducted comprehensive exploratory data analysis to understand dataset characteristics and identify potential features.
+
+\subsubsection{Class Distribution}
+
+The dataset exhibits moderate class imbalance with 36.9\% duplicate pairs and 63.1\% non-duplicate pairs. This distribution is representative of real-world Q\&A platforms where most question pairs are genuinely different.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\textwidth]{eda_plots/01_class_distribution.png}
+\caption{Class distribution in the Quora Question Pairs dataset showing 36.9\% duplicate pairs and 63.1\% non-duplicate pairs.}
+\label{fig:eda_class}
+\end{figure}
+
+\subsubsection{Text Length Analysis}
+
+Analysis of character lengths and word counts revealed:
+\begin{itemize}[noitemsep]
+    \item Average question length: 59.1 characters, 10.9 words
+    \item Duplicate pairs show slightly higher similarity in length (mean difference: 22.3 characters vs. 28.7 for non-duplicates)
+    \item Length features exhibit weak but significant correlation with duplicate status
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{eda_plots/02_text_length_analysis.png}
+\caption{Text length analysis comparing character lengths and word counts between duplicate and non-duplicate question pairs.}
+\label{fig:eda_length}
+\end{figure}
+
+\subsubsection{Word Overlap Patterns}
+
+Word overlap analysis demonstrated strong discriminative power:
+\begin{itemize}[noitemsep]
+    \item Duplicate pairs: mean word share ratio = 0.547
+    \item Non-duplicate pairs: mean word share ratio = 0.288
+    \item Difference: 0.259 (90\% relative increase)
+    \item Pearson correlation with target: +0.4921 (moderate-strong)
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{eda_plots/03_word_overlap_analysis.png}
+\caption{Word overlap analysis showing strong correlation between word share ratio and duplicate status.}
+\label{fig:eda_overlap}
+\end{figure}
+
+\subsubsection{Question Frequency Analysis}
+
+Question frequency patterns revealed interesting characteristics:
+\begin{itemize}[noitemsep]
+    \item Total unique questions: 84,781
+    \item Questions appearing only once: 72,315 (85.3\%)
+    \item Most repeated question: 157 occurrences
+    \item Duplicate pairs contain questions with higher average frequency (3.42 vs. 2.21)
+\end{itemize}
+
+\subsection{Model Development Pipeline}
+
+\subsection{Baseline Approaches}
+
+\subsubsection{TF-IDF with Logistic Regression}
+
+We established a classical baseline using TF-IDF vectorization (5000 features) combined with L2-regularized logistic regression. This approach:
+\begin{itemize}[noitemsep]
+    \item Captures word importance through inverse document frequency weighting
+    \item Provides interpretable feature weights
+    \item Serves as a performance lower bound
+\end{itemize}
+
+\textbf{Results:} Test accuracy of 64.53\%, F1 score of 59.05\%
+
+\subsubsection{SBERT Zero-Shot}
+
+We applied pre-trained Sentence-BERT (all-MiniLM-L6-v2) without task-specific fine-tuning, computing cosine similarity between question embeddings. This approach leverages transfer learning from large-scale pre-training.
+
+\textbf{Results:} Test accuracy of 77.03\%, F1 score of 73.71\%
+
+The significant improvement (+12.5 percentage points) over TF-IDF demonstrates the value of semantic embeddings in capturing question similarity beyond lexical overlap.
+
+\subsection{Initial Approach: SBERT Fine-Tuning}
+
+Building on the zero-shot success, we fine-tuned SBERT on our training data using MultipleNegativesRankingLoss \cite{henderson2017efficient}. This contrastive loss function:
+
+\begin{equation}
+\mathcal{L} = -\log \frac{e^{sim(a,p)/\tau}}{\sum_{n \in N} e^{sim(a,n)/\tau}}
+\end{equation}
+
+where $a$ is the anchor question, $p$ is the positive (duplicate) question, $N$ is the set of negative (non-duplicate) questions in the batch, and $\tau$ is a temperature parameter.
+
+\textbf{Training Configuration:}
+\begin{itemize}[noitemsep]
+    \item Model: all-MiniLM-L6-v2 (22.7M parameters)
+    \item Batch size: 32
+    \item Epochs: 2
+    \item Warmup steps: 10\% of total steps
+    \item Optimizer: AdamW with learning rate 2e-5
+\end{itemize}
+
+\textbf{Results:} Test accuracy of 77.03\%, F1 score of 73.71\%
+
+Surprisingly, fine-tuning did \textit{not improve} performance compared to the zero-shot model (same accuracy, maintained F1). Analysis revealed potential overfitting on the training distribution and loss of generalization capability from the original pre-training. This motivated exploration of advanced fine-tuning techniques.
+
+\subsection{Hard Negative Mining}
+
+To address the limitations of standard fine-tuning, we implemented hard negative mining \cite{schroff2015facenet}, a technique that selectively focuses on difficult training examples. The approach involves:
+
+\textbf{Hard Negative Selection:}
+\begin{enumerate}[noitemsep]
+    \item Encode 2,000 non-duplicate question pairs using the fine-tuned SBERT model
+    \item Compute cosine similarity between all pairs
+    \item Select top 200 pairs with highest similarity scores (false positive candidates)
+    \item These become ``hard negatives'' - non-duplicates that appear semantically similar
+\end{enumerate}
+
+\textbf{Triplet Loss Training:}
+We employed TripletLoss \cite{schroff2015facenet} to further refine the model:
+
+\begin{equation}
+\mathcal{L}_{triplet} = \max(0, \|a - p\|^2 - \|a - n\|^2 + \alpha)
+\end{equation}
+
+where $a$ is the anchor question, $p$ is the positive (duplicate), $n$ is the hard negative, and $\alpha$ is the margin parameter.
+
+\textbf{Training Details:}
+\begin{itemize}[noitemsep]
+    \item Created 2,000 triplets (anchor, positive, hard negative)
+    \item Batch size: 16
+    \item Objective: Maximize separation between duplicates and hard negatives
+\end{itemize}
+
+\textbf{Results:} Validation accuracy of 75.22\%, F1 score of 71.05\%
+
+The hard negative mining approach showed slight degradation compared to the baseline fine-tuned model (77.03\% accuracy). Analysis suggests:
+\begin{itemize}[noitemsep]
+    \item The selected hard negatives may have been too difficult, causing the model to overfit
+    \item The triplet loss margin parameter may require tuning
+    \item The hard negative selection strategy could benefit from more sophisticated sampling
+\end{itemize}
+
+Despite the modest results, this experiment provided valuable insights into the challenges of fine-tuning on limited data and motivated our pivot to feature engineering approaches that proved more effective.
+
+\subsection{Feature Engineering}
+
+Given the limitations of fine-tuning, we developed an extensive feature engineering pipeline combining multiple representation types.
+
+\subsubsection{Semantic Embedding Features (771 features)}
+
+We extracted dense feature vectors from SBERT embeddings:
+\begin{itemize}[noitemsep]
+    \item Question 1 embeddings: 384 dimensions
+    \item Question 2 embeddings: 384 dimensions
+    \item Element-wise absolute difference: |$\text{emb}_1 - \text{emb}_2$|
+    \item Additional similarity metrics: cosine, dot product, Euclidean distance
+\end{itemize}
+
+\subsubsection{Lexical Features (9 features)}
+
+Traditional text similarity metrics computed from tokenized questions $Q_1$ and $Q_2$:
+
+\textbf{Word Overlap Ratio:}
+\begin{equation}
+\text{overlap\_ratio} = \frac{|Q_1 \cap Q_2|}{\min(|Q_1|, |Q_2|)}
+\end{equation}
+
+\textbf{Jaccard Similarity:}
+\begin{equation}
+\text{Jaccard}(Q_1, Q_2) = \frac{|Q_1 \cap Q_2|}{|Q_1 \cup Q_2|}
+\end{equation}
+
+\textbf{Levenshtein Distance:} Character-level edit distance computed using dynamic programming.
+
+\textbf{Length Features:}
+\begin{align}
+\text{length\_ratio} &= \frac{\min(|Q_1|, |Q_2|)}{\max(|Q_1|, |Q_2|)} \\
+\text{length\_diff} &= ||Q_1| - |Q_2||
+\end{align}
+
+\textbf{Set-based Metrics:}
+\begin{align}
+\text{common\_words} &= |Q_1 \cap Q_2| \\
+\text{total\_unique\_words} &= |Q_1 \cup Q_2|
+\end{align}
+
+\subsubsection{Fuzzy Matching Features (6 features)}
+
+Using the FuzzyWuzzy library based on Levenshtein distance, we computed:
+
+\textbf{Simple Ratio:} Character-level similarity
+\begin{equation}
+\text{fuzz\_ratio} = \frac{2 \cdot \text{matches}}{|s_1| + |s_2|} \times 100
+\end{equation}
+where $s_1, s_2$ are the question strings.
+
+\textbf{Partial Ratio:} Best matching substring similarity
+\begin{equation}
+\text{fuzz\_partial} = \max_{\text{substr} \in s_{\text{shorter}}} \text{fuzz\_ratio}(\text{substr}, s_{\text{longer}})
+\end{equation}
+
+\textbf{Token Sort Ratio:} Word order invariant similarity
+\begin{equation}
+\text{fuzz\_token\_sort} = \text{fuzz\_ratio}(\text{sort}(Q_1), \text{sort}(Q_2))
+\end{equation}
+where $\text{sort}()$ alphabetically sorts tokens.
+
+\textbf{Token Set Ratio:} Set-based comparison handling duplicates
+\begin{equation}
+\text{fuzz\_token\_set} = \max\left(\text{fuzz\_ratio}(Q_1 \cap Q_2, Q_1), \text{fuzz\_ratio}(Q_1 \cap Q_2, Q_2)\right)
+\end{equation}
+
+\textbf{QRatio and WRatio:} Optimized variants combining multiple strategies with adaptive weighting.
+
+These features handle typos, word order variations, and partial matches effectively.
+
+\subsubsection{Linguistic Features (6 features)}
+
+Using spaCy NLP pipeline (en\_core\_web\_sm):
+
+\textbf{Named Entity Recognition (NER) Overlap:}
+Let $E_1, E_2$ be sets of named entities extracted from $Q_1, Q_2$:
+\begin{align}
+\text{ner\_jaccard} &= \frac{|E_1 \cap E_2|}{|E_1 \cup E_2|} \\
+\text{ner\_diff} &= ||E_1| - |E_2||
+\end{align}
+
+\textbf{Part-of-Speech (POS) Distribution Similarity:}
+Let $\mathbf{p}_1, \mathbf{p}_2$ be POS tag frequency vectors:
+\begin{equation}
+\text{pos\_cosine} = \frac{\mathbf{p}_1 \cdot \mathbf{p}_2}{\|\mathbf{p}_1\| \|\mathbf{p}_2\|}
+\end{equation}
+
+\textbf{Syntactic Features:}
+\begin{align}
+\text{noun\_ratio\_diff} &= \left|\frac{\#\text{nouns}(Q_1)}{|Q_1|} - \frac{\#\text{nouns}(Q_2)}{|Q_2|}\right| \\
+\text{verb\_ratio\_diff} &= \left|\frac{\#\text{verbs}(Q_1)}{|Q_1|} - \frac{\#\text{verbs}(Q_2)}{|Q_2|}\right|
+\end{align}
+
+\textbf{Numerical Presence:}
+\begin{equation}
+\text{has\_numbers} = \mathbb{1}[\text{contains\_digit}(Q_1) \land \text{contains\_digit}(Q_2)]
+\end{equation}
+
+\subsubsection{TF-IDF Weighted Embeddings (3 features)}
+
+We created importance-weighted semantic features:
+\begin{equation}
+\text{emb}_{\text{weighted}} = \frac{\sum_{w \in Q} \text{TF-IDF}(w) \cdot \text{emb}(w)}{\sum_{w \in Q} \text{TF-IDF}(w)}
+\end{equation}
+
+Then computed: weighted cosine similarity, weighted L1 distance, weighted L2 distance.
+
+
+
+\textbf{Total Features:} 801 (771 + 9 + 6 + 6 + 3)
+
+\subsection{Model Architecture}
+
+\subsubsection{Base Models}
+
+We trained five diverse classifiers on the engineered features:
+
+\begin{enumerate}
+    \item \textbf{LightGBM:} Gradient boosting with leaf-wise tree growth
+    \begin{itemize}[noitemsep]
+        \item Learning rate: 0.05, Max depth: 7
+        \item Leaves: 50, Trees: 200
+        \item Validation accuracy: 68.16\%
+    \end{itemize}
+    
+    \item \textbf{XGBoost:} Gradient boosting with level-wise tree growth
+    \begin{itemize}[noitemsep]
+        \item Learning rate: 0.1, Max depth: 6
+        \item Trees: 200, Subsample: 0.8
+        \item Validation accuracy: 68.63\%
+    \end{itemize}
+    
+    \item \textbf{Random Forest:} Ensemble of decision trees
+    \begin{itemize}[noitemsep]
+        \item Estimators: 200, Max depth: 20
+        \item Min samples split: 10
+        \item Validation accuracy: 69.00\%
+    \end{itemize}
+    
+    \item \textbf{Gradient Boosting:} Sequential ensemble with squared loss
+    \begin{itemize}[noitemsep]
+        \item Learning rate: 0.1, Max depth: 5
+        \item Trees: 100
+        \item Validation accuracy: 68.63\%
+    \end{itemize}
+    
+    \item \textbf{Logistic Regression:} Linear model with L2 regularization
+    \begin{itemize}[noitemsep]
+        \item C: 1.0, Max iterations: 1000
+        \item Solver: lbfgs
+        \item Validation accuracy: 71.81\%
+    \end{itemize}
+\end{enumerate}
+
+\subsubsection{Stacking Ensemble}
+
+We implemented a two-level stacking architecture:
+
+\textbf{Level 0 (Base Models):} The five models above generate probability predictions on validation and test sets.
+
+\textbf{Level 1 (Meta-Learner):} An XGBoost classifier trained on the stacked predictions from Level 0 models:
+\begin{itemize}[noitemsep]
+    \item Input: 5-dimensional probability vectors from base models
+    \item Architecture: Shallow XGBoost (max depth 3, 50 trees)
+    \item Learning rate: 0.1
+    \item Objective: Learn optimal combination weights
+\end{itemize}
+
+The meta-learner captures non-linear interactions between base model predictions, improving upon simple averaging or voting schemes.
+
+\section{Experimental Results}
+
+\subsection{Performance Comparison}
+
+The following table presents comprehensive results across all approaches. The stacking ensemble achieves the best performance across all metrics.
+
+\begin{table}[H]
+\centering
+\caption{Performance comparison of different approaches}
+\label{tab:results}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Model} & \textbf{Test Accuracy (\%)} & \textbf{F1 Score (\%)} & \textbf{ROC-AUC (\%)} \\
+\midrule
+TF-IDF + Logistic Regression & 64.53 & 59.05 & 85.00 \\
+SBERT Zero-Shot & 77.03 & 73.71 & 88.00 \\
+SBERT Fine-tuned & 77.03 & 73.71 & 92.00 \\
+Engineered Features (786) & 79.95 & 67.25 & 91.29 \\
+Stacking Ensemble (801) & \textbf{85.28} & \textbf{80.40} & \textbf{93.13} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Progression Analysis}
+
+The following figure illustrates the performance improvement through our development process:
+
+\begin{itemize}[noitemsep]
+    \item TF-IDF baseline: 64.53\%
+    \item SBERT zero-shot: 77.03\% (+12.50 pp)
+    \item Engineered features: 79.95\% (+2.92 pp)
+    \item Stacking ensemble: 85.28\% (+5.33 pp)
+    \item Total improvement: +20.75 percentage points
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{report_figures/fig_model_comparison.png}
+\caption{Comparative performance of different approaches showing progressive improvements through the development process.}
+\label{fig:progression}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{report_figures/fig_feature_engineering_impact.png}
+\caption{Impact of feature engineering on model performance demonstrating the value of combining multiple feature types.}
+\label{fig:features}
+\end{figure}
+
+\subsection{Ensemble vs Base Models}
+
+The stacking ensemble substantially outperforms individual base models:
+
+\begin{itemize}[noitemsep]
+    \item Best base model (Logistic Regression): 71.81\% validation accuracy
+    \item Stacking ensemble: 85.65\% validation accuracy
+    \item Improvement: +13.84 percentage points
+\end{itemize}
+
+This demonstrates the effectiveness of model diversity and learned combination through the meta-learner.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{report_figures/fig_ensemble_comparison.png}
+\caption{Base models versus stacking ensemble performance showing substantial improvement through model combination.}
+\label{fig:ensemble}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{report_figures/fig_best_model_metrics.png}
+\caption{Performance metrics of the best stacking ensemble model across accuracy, F1 score, and ROC-AUC.}
+\label{fig:best_metrics}
+\end{figure}
+
+\subsection{Error Analysis}
+
+Examining misclassified examples reveals patterns:
+
+\textbf{False Positives (predicted duplicate, actually different):}
+\begin{itemize}[noitemsep]
+    \item High word overlap but different intent
+    \item Similar topics but different specific questions
+    \item Example: "How do I learn Python?" vs "What is the best Python book?"
+\end{itemize}
+
+\textbf{False Negatives (missed duplicates):}
+\begin{itemize}[noitemsep]
+    \item Different wording, minimal word overlap
+    \item One question is significantly more detailed
+    \item Example: "Tips for weight loss?" vs "What dietary changes help reduce body mass?"
+\end{itemize}
+
+\section{Discussion}
+
+\subsection{Key Findings}
+
+\subsubsection{Semantic Embeddings Are Crucial}
+
+The jump from 64.53\% (TF-IDF) to 77.03\% (SBERT) demonstrates that capturing semantic meaning is more important than pure lexical matching. Pre-trained embeddings encode rich semantic knowledge that generalizes well.
+
+\subsubsection{Fine-Tuning Requires Careful Consideration}
+
+Our fine-tuning experiments, including hard negative mining with triplet loss, did not improve performance beyond the zero-shot baseline:
+\begin{itemize}[noitemsep]
+    \item Standard fine-tuning: 77.03\% (same as zero-shot)
+    \item Hard negative mining: 75.22\% (slight degradation)
+\end{itemize}
+
+Likely causes:
+\begin{itemize}[noitemsep]
+    \item Limited training data (35,000 pairs) compared to SBERT pre-training corpus
+    \item Hard negative selection too aggressive, leading to overfitting on difficult examples
+    \item Loss functions (MultipleNegativesRankingLoss, TripletLoss) optimized for retrieval rather than classification
+    \item Risk of catastrophic forgetting of pre-training knowledge
+    \item Insufficient hyperparameter tuning for margin and sampling strategies
+\end{itemize}
+
+\subsubsection{Feature Engineering Adds Value}
+
+Combining semantic embeddings with handcrafted features improved performance by 2.92 percentage points. Fuzzy matching and linguistic features capture patterns that pure embeddings miss.
+
+\subsubsection{Ensemble Learning Provides Substantial Gains}
+
+The stacking ensemble yielded the largest single improvement (+5.33 pp), validating the approach of combining diverse models. The XGBoost meta-learner effectively learned optimal model combinations.
+
+\section{Conclusion}
+
+This study demonstrates that effective duplicate question detection requires a multi-faceted approach combining semantic understanding, linguistic analysis, and ensemble learning. Starting from a 64.53\% TF-IDF baseline, we achieved 85.28\% accuracy through systematic improvements:
+
+\begin{enumerate}
+    \item Pre-trained SBERT embeddings (+12.50 pp)
+    \item Comprehensive feature engineering (+2.92 pp)
+    \item Stacking ensemble with diverse base models (+5.33 pp)
+\end{enumerate}
+
+While our SBERT fine-tuning attempt was unsuccessful, it provided valuable insights into the challenges of transfer learning with limited data. The success of feature engineering and ensemble methods shows that combining traditional NLP techniques with modern semantic embeddings remains a powerful strategy.
+
+Our best model achieves competitive performance using relatively simple methods and limited computational resources, making it practical for real-world deployment. The systematic evaluation and error analysis provide a foundation for future improvements through more sophisticated fine-tuning strategies and architectural innovations.
+
+The project highlights the importance of:
+\begin{itemize}[noitemsep]
+    \item Thorough exploratory data analysis to inform feature design
+    \item Diverse feature representations capturing different aspects of similarity
+    \item Ensemble learning to leverage model complementarity
+    \item Careful evaluation and error analysis to identify improvement opportunities
+\end{itemize}
+
+\section*{References}
+
+\begin{thebibliography}{9}
+
+\bibitem{tfidf}
+Salton, G., \& McGill, M. J. (1983). 
+\textit{Introduction to Modern Information Retrieval}. 
+McGraw-Hill.
+
+\bibitem{mikolov2013}
+Mikolov, T., Sutskever, I., Chen, K., Corrado, G., \& Dean, J. (2013). 
+Distributed Representations of Words and Phrases and their Compositionality. 
+\textit{Advances in Neural Information Processing Systems}, 26.
+
+\bibitem{devlin2018bert}
+Devlin, J., Chang, M. W., Lee, K., \& Toutanova, K. (2018). 
+BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding. 
+\textit{arXiv preprint arXiv:1810.04805}.
+
+\bibitem{reimers2019sentence}
+Reimers, N., \& Gurevych, I. (2019). 
+Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks. 
+\textit{Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing}.
+
+\bibitem{henderson2017efficient}
+Henderson, M., Al-Rfou, R., Strope, B., Sung, Y. H., Lukács, L., Guo, R., ... \& Kurzweil, R. (2017). 
+Efficient Natural Language Response Suggestion for Smart Reply. 
+\textit{arXiv preprint arXiv:1705.00652}.
+
+\bibitem{dietterich2000ensemble}
+Dietterich, T. G. (2000). 
+Ensemble Methods in Machine Learning. 
+\textit{International Workshop on Multiple Classifier Systems}, 1-15.
+
+\bibitem{wolpert1992stacked}
+Wolpert, D. H. (1992). 
+Stacked Generalization. 
+\textit{Neural Networks}, 5(2), 241-259.
+
+\bibitem{schroff2015facenet}
+Schroff, F., Kalenichenko, D., \& Philbin, J. (2015). 
+FaceNet: A Unified Embedding for Face Recognition and Clustering. 
+\textit{Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition}, 815-823.
+
+\bibitem{godbole2017siamese}
+Godbole, A., Dalmia, A., \& Sahu, S. K. (2017). 
+Siamese Neural Networks with Random Forest for Detecting Duplicate Question Pairs. 
+\textit{arXiv preprint arXiv:1801.07288}.
+
+\bibitem{ansari2019quora}
+Ansari, N., \& Sharma, R. (2019). 
+Identifying Semantically Duplicate Questions Using Data Science Approach: A Quora Case Study. 
+\textit{Proceedings of ACM Conference}. ACM, New York, NY, USA.
+
+\end{thebibliography}
+
+\end{document}

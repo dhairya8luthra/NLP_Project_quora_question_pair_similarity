@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quora Duplicate Question Detector</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 900px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            margin-top: 10px;
+            font-weight: 600;
+        }
+
+        .input-section {
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            margin-bottom: 25px;
+        }
+
+        .input-group label {
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .input-group textarea {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1em;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 80px;
+            transition: border-color 0.3s;
+        }
+
+        .input-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        button {
+            flex: 1;
+            padding: 15px 30px;
+            font-size: 1.1em;
+            font-weight: 600;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .predict-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .predict-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .predict-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .clear-btn {
+            background: #f5f5f5;
+            color: #666;
+        }
+
+        .clear-btn:hover {
+            background: #e0e0e0;
+        }
+
+        .loader {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .loader.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .result-section {
+            display: none;
+            margin-top: 30px;
+            padding: 25px;
+            border-radius: 15px;
+            border: 2px solid #e0e0e0;
+        }
+
+        .result-section.show {
+            display: block;
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result-header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .result-badge {
+            display: inline-block;
+            padding: 15px 40px;
+            border-radius: 30px;
+            font-size: 1.5em;
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+
+        .result-badge.duplicate {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .result-badge.not-duplicate {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+
+        .confidence {
+            font-size: 1.3em;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .confidence-bar {
+            width: 100%;
+            height: 30px;
+            background: #f0f0f0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 1s ease-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+
+        .base-models {
+            margin-top: 30px;
+        }
+
+        .base-models h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
+        .model-score {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            margin-bottom: 10px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .model-name {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .model-percent {
+            color: #667eea;
+            font-weight: 700;
+        }
+
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .info-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 10px;
+        }
+
+        .info-section h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .info-section ul {
+            list-style: none;
+            padding-left: 20px;
+        }
+
+        .info-section li {
+            color: #666;
+            margin-bottom: 8px;
+            position: relative;
+        }
+
+        .info-section li:before {
+            content: "✓";
+            position: absolute;
+            left: -20px;
+            color: #667eea;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Duplicate Question Detector</h1>
+            <p>AI-Powered Semantic Similarity Analysis</p>
+            <span class="badge">Stacking Ensemble • 85.28% Accuracy</span>
+        </div>
+
+        <div class="input-section">
+            <div class="input-group">
+                <label for="question1">Question 1:</label>
+                <textarea 
+                    id="question1" 
+                    placeholder="Enter first question (e.g., How do I learn Python?)"
+                ></textarea>
+            </div>
+
+            <div class="input-group">
+                <label for="question2">Question 2:</label>
+                <textarea 
+                    id="question2" 
+                    placeholder="Enter second question (e.g., What's the best way to learn Python?)"
+                ></textarea>
+            </div>
+
+            <div class="button-group">
+                <button class="predict-btn" onclick="predictDuplicate()">
+                    🚀 Check for Duplicates
+                </button>
+                <button class="clear-btn" onclick="clearInputs()">
+                    🗑️ Clear
+                </button>
+            </div>
+        </div>
+
+        <div class="loader" id="loader">
+            <div class="spinner"></div>
+            <p style="margin-top: 10px; color: #667eea; font-weight: 600;">Analyzing questions...</p>
+        </div>
+
+        <div class="error-message" id="error"></div>
+
+        <div class="result-section" id="result">
+            <div class="result-header">
+                <div class="result-badge" id="prediction-badge">
+                    <!-- Prediction text will go here -->
+                </div>
+                <div class="confidence">
+                    Confidence: <span id="confidence-value">0</span>%
+                </div>
+                <div class="confidence-bar">
+                    <div class="confidence-fill" id="confidence-bar" style="width: 0%">
+                        <span id="confidence-bar-text">0%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="base-models" style="display: none;">
+                <h3>📊 Base Model Predictions:</h3>
+                <div id="base-models-list">
+                    <!-- Base model scores will be inserted here -->
+                </div>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h3>ℹ️ How it works:</h3>
+            <ul>
+                <li>Extracts 801 features from your questions</li>
+                <li>Uses 5 different ML models (LightGBM, XGBoost, Random Forest, Gradient Boosting, Logistic Regression)</li>
+                <li>Combines predictions using a Meta-XGBoost ensemble</li>
+                <li>Analyzes semantic meaning, lexical patterns, fuzzy matching, and linguistic features</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        async function predictDuplicate() {
+            const question1 = document.getElementById('question1').value.trim();
+            const question2 = document.getElementById('question2').value.trim();
+            
+            // Clear previous results and errors
+            document.getElementById('error').classList.remove('show');
+            document.getElementById('result').classList.remove('show');
+            
+            // Validation
+            if (!question1 || !question2) {
+                showError('Please enter both questions!');
+                return;
+            }
+            
+            // Show loader
+            document.getElementById('loader').classList.add('active');
+            document.querySelector('.predict-btn').disabled = true;
+            
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        question1: question1,
+                        question2: question2
+                    })
+                });
+                
+                const data = await response.json();
+                
+                console.log('API Response:', data);  // Debug log
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Prediction failed');
+                }
+                
+                if (!data || typeof data !== 'object') {
+                    throw new Error('Invalid response format');
+                }
+                
+                displayResults(data);
+                
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                document.getElementById('loader').classList.remove('active');
+                document.querySelector('.predict-btn').disabled = false;
+            }
+        }
+        
+        function displayResults(data) {
+            try {
+                console.log('Displaying results for:', data);  // Debug log
+                
+                // Update prediction badge
+                const badge = document.getElementById('prediction-badge');
+                const isDuplicate = data.duplicate;
+                badge.textContent = isDuplicate ? '✓ DUPLICATE' : '✗ NOT DUPLICATE';
+                badge.className = 'result-badge ' + (isDuplicate ? 'duplicate' : 'not-duplicate');
+            
+            // Update confidence (convert to percentage)
+            const confidencePercent = (data.confidence * 100).toFixed(2);
+            document.getElementById('confidence-value').textContent = confidencePercent;
+            document.getElementById('confidence-bar').style.width = confidencePercent + '%';
+            document.getElementById('confidence-bar-text').textContent = confidencePercent + '%';
+            
+            // Update base models
+            const baseModelsList = document.getElementById('base-models-list');
+            baseModelsList.innerHTML = '';
+            
+            if (data.base_predictions) {
+                for (const [model, score] of Object.entries(data.base_predictions)) {
+                    const modelDiv = document.createElement('div');
+                    modelDiv.className = 'model-score';
+                    const modelName = model.split('_').map(word => 
+                        word.charAt(0).toUpperCase() + word.slice(1)
+                    ).join(' ');
+                    const scorePercent = (score * 100).toFixed(2);
+                    modelDiv.innerHTML = `
+                        <span class="model-name">${modelName}</span>
+                        <span class="model-percent">${scorePercent}%</span>
+                    `;
+                    baseModelsList.appendChild(modelDiv);
+                }
+            }
+            
+            // Show note if present
+            if (data.note) {
+                const noteDiv = document.createElement('div');
+                noteDiv.style.marginTop = '15px';
+                noteDiv.style.padding = '10px';
+                noteDiv.style.background = '#fff3cd';
+                noteDiv.style.borderRadius = '5px';
+                noteDiv.style.color = '#856404';
+                noteDiv.textContent = '⚠️ ' + data.note;
+                baseModelsList.appendChild(noteDiv);
+            }
+            
+                // Show results
+                document.getElementById('result').classList.add('show');
+            } catch (error) {
+                console.error('Error in displayResults:', error);
+                showError('Failed to display results: ' + error.message);
+            }
+        }
+        
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = '❌ Error: ' + message;
+            errorDiv.classList.add('show');
+        }
+        
+        function clearInputs() {
+            document.getElementById('question1').value = '';
+            document.getElementById('question2').value = '';
+            document.getElementById('error').classList.remove('show');
+            document.getElementById('result').classList.remove('show');
+        }
+        
+        // Allow Enter key to submit in textareas
+        document.querySelectorAll('textarea').forEach(textarea => {
+            textarea.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && e.ctrlKey) {
+                    predictDuplicate();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
